@@ -26,10 +26,28 @@ async def start_handler(message: Message):
     )
 
 
+def extract_base_emoji(text: str, offset: int, length: int) -> str:
+    """
+    Telegram считает offset/length в UTF-16 code units, а не в Python
+    code points. Поэтому резать обычную Python-строку напрямую (text[offset:offset+length])
+    некорректно для эмодзи вне BMP (большинство эмодзи занимают 2 UTF-16-юнита,
+    а некоторые составные/ZWJ-последовательности — больше). Из-за этого соседние
+    custom_emoji "съезжали" и base-эмодзи слипались или терялись.
+    Решение: кодируем текст в UTF-16 (без BOM), режем по нужным индексам
+    *в этом представлении*, затем декодируем обратно.
+    """
+    utf16_bytes = text.encode("utf-16-le")
+    start = offset * 2
+    end = (offset + length) * 2
+    chunk = utf16_bytes[start:end]
+    return chunk.decode("utf-16-le", errors="ignore")
+
+
 @dp.message()
 async def emoji_handler(message: Message):
     # entities может быть как у обычных сообщений, так и у caption (если эмодзи в подписи к фото/видео)
     entities = message.entities or message.caption_entities
+    text_source = message.text or message.caption or ""
 
     if not entities:
         await message.answer("В сообщении не найдено эмодзи-сущностей.")
@@ -38,9 +56,7 @@ async def emoji_handler(message: Message):
     results = []
     for entity in entities:
         if entity.type == "custom_emoji":
-            # base-эмодзи (юникод-фолбэк) Telegram кладёт прямо в текст сообщения
-            text_source = message.text or message.caption or ""
-            base_emoji = text_source[entity.offset: entity.offset + entity.length]
+            base_emoji = extract_base_emoji(text_source, entity.offset, entity.length)
             custom_id = entity.custom_emoji_id
             results.append(f"{base_emoji} — {custom_id}")
 
