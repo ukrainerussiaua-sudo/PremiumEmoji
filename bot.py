@@ -2,14 +2,18 @@ import asyncio
 import logging
 import os
 
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 from aiogram.filters import CommandStart
 
 logging.basicConfig(level=logging.INFO)
 
-# Вставь свой токен от @BotFather либо задай переменную окружения BOT_TOKEN
-BOT_TOKEN = os.getenv("BOT_TOKEN", "ВАШ_ТОКЕН_ТУТ")
+load_dotenv()  # подхватывает переменные из файла .env
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("Не найден BOT_TOKEN. Создай файл .env с BOT_TOKEN=твой_токен")
 
 dp = Dispatcher()
 
